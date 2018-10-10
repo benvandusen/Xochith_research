@@ -1,0 +1,95 @@
+---
+title: "HLM stuff"
+output: html_document
+---
+
+```{r message=FALSE, warning=FALSE}
+#load("~/Desktop/hmiout40")
+
+library(mitools)
+library(stargazer)
+library(lme4)
+library(nlme)
+library(mice)
+library(mitml)
+library(multcomp)
+library(foreach)
+library(ggplot2)
+library(stringr)
+library(dplyr)  #I load dplyr last because some of its functions (select) will be masked by plyr and it is a PITA to debug
+```
+
+Creating mitml and extra variables
+```{r}
+MIdata<-mids2mitml.list(hmi.fall.2018) #converts file type
+
+thing <- list()
+for (i in 1:10){
+  temp <- MIdata[[i]]
+  class_means <- temp %>% group_by(course_id) %>% summarise(pre_mean_class = mean(pre_score))
+  class_means$class_pre_cent <- class_means$pre_mean_class - mean(class_means$pre_mean_class)
+  temp <- left_join(temp,class_means, by="course_id")
+  temp$stud_pre_cent <- temp$pre_score - temp$pre_mean_class
+  temp$gain <- temp$post_score - temp$pre_score
+  temp$coll <- temp$colab_no_la + temp$used_las
+  #assign(df.names[i], temp)
+  thing[[i]] <- temp
+  }
+MIdata <- as.mitml.list(thing)
+```
+
+
+Models
+```{r}
+mod_1<-with(MIdata,{lmer(gain~1 + (1|course_id))})
+mod_2<-with(MIdata,{lmer(gain~1 + class_pre_cent + (1|course_id))})
+mod_3<-with(MIdata,{lmer(gain~1 + stud_pre_cent + (1|course_id))})
+mod_4<-with(MIdata,{lmer(gain~1 + stud_pre_cent + coll + (1|course_id))})
+mod_5<-with(MIdata,{lmer(gain~1 + stud_pre_cent + colab_no_la + used_las + (1|course_id))})
+mod_6<-with(MIdata,{lmer(gain~1 + stud_pre_cent  + colab_no_la + la_in_lab + la_in_lecture + la_in_rec + (1|course_id))})
+mod_7<-with(MIdata,{lmer(gain~1 + stud_pre_cent  + colab_no_la + la_in_lab + la_in_lecture + la_in_rec + (1 + stud_pre_cent|course_id))})
+#full model
+mod_5 <- with(MIdata,{lmer(gain~1 + stud_pre_cent*coll + class_pre_cent + (1|course_id))})
+#-classpre
+mod_6 <- with(MIdata,{lmer(gain~1 + stud_pre_cent + class_pre_cent*coll + (1|course_id))})
+
+
+#-colab_no_la*stud_pre
+mod_7 <- with(MIdata,{lmer(gain~1 + stud_pre_cent*used_las + colab_no_la + (1|course_id))})
+#la-use
+mod_8<-with(MIdata,{lmer(gain~1 + stud_pre_cent + pre_mean_class + colab_no_la + la_in_lab + la_in_lecture + la_in_rec + (1|course_id))})
+#-classpre
+mod_9<-with(MIdata,{lmer(gain~1 + stud_pre_cent  + colab_no_la + la_in_lab + la_in_lecture + la_in_rec + (1|course_id))})
+
+#full model
+mod_5.1<-with(MIdata,{lmer(gain~1 + stud_pre_cent*coll + class_pre_cent*coll + (1|course_id))})
+#-classpre
+mod_6.1 <- with(MIdata,{lmer(gain~1 + stud_pre_cent*coll + (1|course_id))})
+
+mod_5.2<-with(MIdata,{lmer(gain~1 + stud_pre_cent*coll + class_pre_cent*coll + (1|course_id))})
+
+mod_5.1<-with(MIdata,{lmer(post_score~1 + stud_pre_cent + (1|course_id))})
+mod_5.2<-with(MIdata,{lmer(gain~1 + stud_pre_cent + (1|course_id))})
+```
+#average student posttest score is 54.59
+
+```{r}
+testEstimates(mod_1, var.comp=TRUE)
+testEstimates(mod_2, var.comp=TRUE)
+testEstimates(mod_3, var.comp=TRUE)
+testEstimates(mod_4, var.comp=TRUE)
+testEstimates(mod_5, var.comp=TRUE)
+testEstimates(mod_6, var.comp=TRUE)
+testEstimates(mod_7, var.comp=TRUE)
+testEstimates(mod_8, var.comp=TRUE)
+testEstimates(mod_9, var.comp=TRUE)
+
+
+
+
+testEstimates(mod_6.1, var.comp=TRUE)
+testEstimates(mod_7.1, var.comp=TRUE)
+
+testEstimates(mod_5.2, var.comp=TRUE)
+```
+
