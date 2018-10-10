@@ -5,6 +5,8 @@ output: html_document
 
 ```{r message=FALSE, warning=FALSE}
 #load("~/Desktop/hmiout40")
+load("~/Documents/LA Postdoc stuff copy/RData/LASSO/Denver-Chico_collaboration/Physics_Equity_new/hmifall2018_m10_better")
+
 
 library(mitools)
 library(stargazer)
@@ -48,6 +50,7 @@ mod_4<-with(MIdata,{lmer(gain~1 + stud_pre_cent + coll + (1|course_id))})
 mod_5<-with(MIdata,{lmer(gain~1 + stud_pre_cent + colab_no_la + used_las + (1|course_id))})
 mod_6<-with(MIdata,{lmer(gain~1 + stud_pre_cent  + colab_no_la + la_in_lab + la_in_lecture + la_in_rec + (1|course_id))})
 mod_7<-with(MIdata,{lmer(gain~1 + stud_pre_cent  + colab_no_la + la_in_lab + la_in_lecture + la_in_rec + (1 + stud_pre_cent|course_id))})
+mod_8<-with(MIdata,{lmer(gain~1 + stud_pre_cent  + colab_no_la + used_las + (1 + stud_pre_cent|course_id))})
 #full model
 ```
 #average student posttest score is 54.59
@@ -60,6 +63,7 @@ testEstimates(mod_4, var.comp=TRUE)
 testEstimates(mod_5, var.comp=TRUE)
 testEstimates(mod_6, var.comp=TRUE) #best model
 testEstimates(mod_7, var.comp=TRUE)
+testEstimates(mod_8, var.comp=TRUE)
 
 ```
 
