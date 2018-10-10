@@ -142,3 +142,56 @@ ggplot(data=contrast_g6_est, aes(x=instruction, y=Q, fill=instruction)) +geom_ba
 
 kable(contrast_g6_est[c(1,2,6,7)], digits = 2)
 ```
+
+#Assumption checking
+
+```{r}
+	for (i in 1:10) {
+  D1 <- lmer(mod6,data=MIdata[[i]])
+  print(plot(D1, xlab="Fitted Value", ylab="Residual Variance"))
+}
+ 
+
+for (i in 1:10) {
+  D1 <- lmer(mod6,data=MIdata[[i]])
+#visual homogeneity of variance
+MIdata[[i]]$Model.F.Res <- residuals(D1) #extracts the residuals and places them in a new column in our original data table
+MIdata[[i]]$Abs.Model.F.Res <-abs(MIdata[[1]]$Model.F.Res) #creates a new column with the absolute value of the residuals
+print(boxplot(MIdata[[i]]$Model.F.Res ~ MIdata[[i]]$course_id, xlab = "Course", ylab = "Residuals" ))
+}
+
+for (i in 1:10) {
+  D1 <- lmer(mod6,data=MIdata[[i]])
+#Assumption of Normality or residuals: want points to be near the line
+print(qqmath(D1))
+}
+```
+ # This produces a table of the pvalues for the correlations between the student level variables for pretest and the residuals. These p values should be large to indicate that there isn't a correlation
+```{r}
+res_corr <- data_frame(it =NA,
+                       with_pre_score = NA,
+                       with_cent_pre = NA)
+ for (i in 1:10) {
+res_corr[i,1] <- i
+D1 <- lmer(mod6,data=MIdata[[i]])
+temp <- cor.test(resid(D1), MIdata[[i]]$pre_score)
+res_corr[i,2] <-  temp$p.value 
+temp <-  cor.test(resid(D1), MIdata[[i]]$stud_pre_cent)
+res_corr[i,3] <- temp$p.value
+}
+```	
+
+```{r}
+lev_p <- data_frame(it =NA,
+                       p_values = NA)
+ for (i in 1:10) {
+lev_p[i,1] <-i
+D1 <- lmer(mod6,data=MIdata[[i]])
+MIdata[[i]]$Model.F.Res<- residuals(D1) #extracts the residuals and places them in a new column in our original data table
+MIdata[[i]]$Abs.Model.F.Res <-abs(MIdata[[i]]$Model.F.Res) #creates a new column with the absolute value of the residuals
+Levene.Model.F <- lm(Model.F.Res ~ course_id, data=MIdata[[i]]) #ANOVA of the residuals
+temp <-anova(Levene.Model.F) #displays the results: want a p>0.05
+lev_p[i,2] <- temp$`Pr(>F)`[[1]]
+}
+```
+
