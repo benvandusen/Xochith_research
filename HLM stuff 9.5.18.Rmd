@@ -198,7 +198,224 @@ kable(contrast_g6_est[c(1,2,6,7)], digits = 2)
 ```
 
 
+#Calculating the descriptive statistics 
+##building tables
 
+```{r}
+student_means <- foreach(i=1:10, .combine=rbind) %do% {
+  temp <- MIdata[[i]]
+  temp$instruction <- ifelse(temp$used_las==1,"Used LAs",ifelse(temp$colab_no_la==1,"Collaborative No LA","Lecture"))
+  student_means <- temp %>% group_by(instruction) %>% summarise(mean_gain = mean(gain))
+  return <- student_means
+  }
+
+student_means_la_use <- foreach(i=1:10, .combine=rbind) %do% {
+  temp <- MIdata[[1]]
+  temp <- temp[temp$used_las==1,]
+  temp$instruction <- ifelse(temp$la_in_lecture ==1,"LA in Lecture",ifelse(temp$la_in_lab ==1,"LA in Lab","LA in Recitation"))
+  student_means_1 <- temp %>% group_by(instruction) %>% summarise(gain = mean(gain))
+  return <- student_means_1
+}
+
+student_means_tab <- data.frame(Level = "Student",
+                            Used_LAs = mean(student_means$mean_gain[student_means$instruction=="Used LAs"]), 
+                            Collab_No_LA = mean(student_means$mean_gain[student_means$instruction=="Collaborative No LA"]),
+                            Lecture = mean(student_means$mean_gain[student_means$instruction=="Lecture"]), 
+                            All = mean(student_means$mean_gain),
+                              la_in_lecture = mean(student_means_la_use$gain[student_means_la_use$instruction=="LA in Lecture"]),
+                              la_in_recitation = mean(student_means_la_use$gain[student_means_la_use$instruction=="LA in Recitation"]),
+                              la_in_lab = mean(student_means_la_use$gain[student_means_la_use$instruction=="LA in Lab"]))
+
+
+class_means <- foreach(i=1:10, .combine=rbind) %do% {
+  temp <- MIdata[[i]]
+  temp$instruction <- ifelse(temp$used_las==1,"Used LAs",ifelse(temp$colab_no_la==1,"Collaborative No LA","Lecture"))
+  class_means <- temp %>% group_by(course_id) %>% summarise(gain = mean(gain))
+  class_means <- left_join(class_means,unique(temp[c(2,23)]), by = "course_id")
+  class_means <- class_means_1 %>% group_by(instruction) %>% summarise(gain = mean(gain))
+  return <- class_means
+}
+
+class_means_la_use <- foreach(i=1:10, .combine=rbind) %do% {
+  temp <- MIdata[[i]]
+  temp <- temp[temp$used_las==1,]
+  temp$instruction <- ifelse(temp$la_in_lecture ==1,"LA in Lecture",ifelse(temp$la_in_lab ==1,"LA in Lab","LA in Recitation"))
+  class_means <- temp %>% group_by(course_id) %>% summarise(gain = mean(gain))
+  class_means <- left_join(class_means,unique(temp[c(2,23)]), by = "course_id")
+  class_means <- class_means %>% group_by(instruction) %>% summarise(gain = mean(gain))
+  return <- class_means
+}
+ 
+class_means_1 <- foreach(i=1:10, .combine=rbind) %do% {
+  temp <- MIdata[[i]]
+  temp$instruction <- ifelse(temp$used_las==1,"Used LAs",ifelse(temp$colab_no_la==1,"Collaborative No LA","Lecture"))
+  class_means_1 <- temp %>% group_by(course_id) %>% summarise(gain = mean(gain))
+  class_means_1 <- left_join(class_means_1,unique(temp[c(2,23)]), by = "course_id")
+  return <- class_means_1
+}
+
+
+class_means_tab <- data_frame(Level = "Course",
+                              Used_LAs = mean(class_means_1$gain[class_means_1$instruction=="Used LAs"]),
+                              Collab_No_LA = mean(class_means_1$gain[class_means_1$instruction=="Collaborative No LA"]),
+                              Lecture = mean(class_means_1$gain[class_means_1$instruction=="Lecture"]),
+                              All = mean(class_means_1$gain),
+                              la_in_lecture = mean(class_means_la_use$gain[class_means_la_use$instruction=="LA in Lecture"]),
+                              la_in_recitation = mean(class_means_la_use$gain[class_means_la_use$instruction=="LA in Recitation"]),
+                              la_in_lab = mean(class_means_la_use$gain[class_means_la_use$instruction=="LA in Lab"]))
+
+
+temp <- MIdata[[1]]
+class_length_tab <- data_frame(Level = "Course",
+                              Used_LAs = length(unique(temp$course_id[temp$used_las==1])),
+                              Collab_No_LA = length(unique(temp$course_id[temp$colab_no_la ==1])),
+                              Lecture = length(unique(temp$course_id[temp$lecture==1])),
+                              All = length(unique(temp$course_id)),
+                              la_in_lecture = length(unique(temp$course_id[temp$la_in_lecture==1])),
+                              la_in_recitation = length(unique(temp$course_id[temp$la_in_rec==1])),
+                              la_in_lab = length(unique(temp$course_id[temp$la_in_lab==1])))
+
+student_length_tab <- data_frame(Level = "Student",
+                              Used_LAs = length((temp$student_id[temp$used_las==1])),
+                              Collab_No_LA = length((temp$student_id[temp$colab_no_la ==1])),
+                              Lecture = length((temp$student_id[temp$lecture==1])),
+                              All = length((temp$student_id)),
+                              la_in_lecture = length((temp$student_id[temp$la_in_lecture==1])),
+                              la_in_recitation = length((temp$student_id[temp$la_in_rec==1])),
+                              la_in_lab = length((temp$student_id[temp$la_in_lab==1])))
+
+descriptive_table <- bind_rows(student_length_tab,class_length_tab,student_means_tab,class_means_tab)
+kable(descriptive_table, digits=1)
+```
+
+```{r}
+class_means <- foreach(i=1:10, .combine=rbind) %do% {
+  temp <- MIdata[[i]]
+  class_means <- temp %>% group_by(course_id) %>% summarise(gain = mean(gain))
+   return <- class_means
+}
+
+class_means <- class_means %>% group_by(course_id) %>% summarise(gain = mean(gain))
+
+temp$instruction <- ifelse(temp$used_las==1,"Used LAs",ifelse(temp$colab_no_la==1,"Collaborative No LA","Lecture"))
+temp$instruction_la_use <- ifelse(temp$lecture==1,"Lecture",
+                                    ifelse(temp$colab_no_la==1,
+                                           "Collaborative No LA",
+                                           ifelse(temp$la_in_lab==1,"LA in Lab",
+                                                  ifelse(temp$la_in_lecture==1,"LA in Lecture","LA in Recitation"))))
+class_size <- temp %>% group_by(course_id) %>% summarise(N = length(student_id))
+
+class_means <- left_join(class_means,unique(temp[c(2,23,24)]), by = "course_id")
+class_means <- left_join(class_means,class_size, by = "course_id")
+```
+
+```{r}
+ggplot(class_means, aes(x=gain, y= N, color=instruction)) +geom_point()
+
+library(cowplot)
+
+sp <- ggplot(data=class_means, aes(x=gain,y=N,col=instruction)) +geom_point(alpha=0.5, size=1) +
+  xlim(0,50)+
+  ylim(0,650)
+
+xplot <-  ggplot(data=class_means, aes(x=gain, fill=instruction,color=instruction) ) + geom_density(alpha=0.3)+ 
+  theme(legend.position = 'none', 
+        axis.line=element_blank(),
+        axis.text.x=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks=element_blank(), 
+        axis.title.x=element_blank(),
+        axis.title.y=element_blank())+
+  xlim(0,50)
+  
+  
+yplot <-  ggplot(data=class_means, aes(x=N, fill=instruction,color=instruction) ) +geom_density(alpha=0.3)+ 
+  theme(legend.position = 'none', 
+        axis.line=element_blank(),
+        axis.text.x=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks=element_blank(), 
+        axis.title.x=element_blank(),
+        axis.title.y=element_blank())+
+  xlim(0,650) +
+  coord_flip()
+
+plot_grid(xplot, NULL, sp+theme(legend.position = 'none') , yplot, ncol = 2, align = "hv", 
+          rel_widths = c(2, 1), rel_heights = c(1, 2))
+
+```
+
+```{r}
+ggplot(class_means, aes(x=gain, y= N, color=instruction_la_use)) +geom_point()
+
+library(cowplot)
+
+sp <- ggplot(data=class_means, aes(x=gain,y=N,col=instruction_la_use)) +geom_point(alpha=0.5, size=1) +
+  xlim(0,50)+
+  ylim(0,650)
+
+xplot <-  ggplot(data=class_means, aes(x=gain, fill=instruction_la_use,color=instruction_la_use) ) + geom_density(alpha=0.3)+ 
+  theme(legend.position = 'none', 
+        axis.line=element_blank(),
+        axis.text.x=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks=element_blank(), 
+        axis.title.x=element_blank(),
+        axis.title.y=element_blank())+
+  xlim(0,50)
+  
+  
+yplot <-  ggplot(data=class_means, aes(x=N, fill=instruction_la_use,color=instruction_la_use) ) +geom_density(alpha=0.3)+ 
+  theme(legend.position = 'none', 
+        axis.line=element_blank(),
+        axis.text.x=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks=element_blank(), 
+        axis.title.x=element_blank(),
+        axis.title.y=element_blank())+
+  xlim(0,650) +
+  coord_flip()
+
+plot_grid(xplot, NULL, sp+theme(legend.position = 'none') , yplot, ncol = 2, align = "hv", 
+          rel_widths = c(2, 1), rel_heights = c(1, 2))
+
+```
+
+```{r}
+ggplot(class_means[class_means$instruction=="Used LAs",], aes(x=gain, y= N, color=instruction_la_use)) +geom_point()
+
+library(cowplot)
+
+sp <- ggplot(data=class_means[class_means$instruction=="Used LAs",], aes(x=gain,y=N,col=instruction_la_use)) +geom_point(alpha=0.5, size=1) +
+  xlim(0,50)+
+  ylim(0,650)
+
+xplot <-  ggplot(data=class_means[class_means$instruction=="Used LAs",], aes(x=gain, fill=instruction_la_use,color=instruction_la_use) ) + geom_histogram(alpha=0.3, position = "dodge")+ 
+  theme(legend.position = 'none', 
+        axis.line=element_blank(),
+        axis.text.x=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks=element_blank(), 
+        axis.title.x=element_blank(),
+        axis.title.y=element_blank())+
+  xlim(0,50)
+  
+  
+yplot <-  ggplot(data=class_means[class_means$instruction=="Used LAs",], aes(x=N, fill=instruction_la_use,color=instruction_la_use) ) +geom_histogram(alpha=0.3, position = "dodge")+ 
+  theme(legend.position = 'none', 
+        axis.line=element_blank(),
+        axis.text.x=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks=element_blank(), 
+        axis.title.x=element_blank(),
+        axis.title.y=element_blank())+
+  xlim(0,650) +
+  coord_flip()
+
+plot_grid(xplot, NULL, sp+theme(legend.position = 'none') , yplot, ncol = 2, align = "hv", 
+          rel_widths = c(2, 1), rel_heights = c(1, 2))
+
+```
 
 
 #Assumption checking
