@@ -7,6 +7,8 @@ output: html_document
 #load("~/Desktop/hmiout40")
 load("~/Documents/LA Postdoc stuff copy/RData/LASSO/Denver-Chico_collaboration/Physics_Equity_new/hmifall2018_m10_better")
 
+#Ben data
+#load("~/Box Sync/work/Research/R stuff/hmifall2018_m10_better")
 
 library(mitools)
 library(stargazer)
