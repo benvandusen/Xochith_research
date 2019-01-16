@@ -5,10 +5,12 @@ output: html_document
 
 ```{r message=FALSE, warning=FALSE}
 #load("~/Desktop/hmiout40")
-load("~/Documents/LA Postdoc stuff copy/RData/LASSO/Denver-Chico_collaboration/Physics_Equity_new/hmifall2018_m10_better")
+#load("~/Documents/LA Postdoc stuff copy/RData/LASSO/Denver-Chico_collaboration/Physics_Equity_new/hmifall2018_m10_better")
 
 #Ben data
 #load("~/Box Sync/work/Research/R stuff/hmifall2018_m10_better")
+
+load("~/Documents/LASSO Data/hmi_data_1_10_19_xochith")
 
 library(mitools)
 library(stargazer)
@@ -30,7 +32,7 @@ cbbpalette <- c('#000000','#E69F00','#56B4E9')
 
 Creating mitml and extra variables
 ```{r}
-MIdata<-mids2mitml.list(hmi.fall.2018) #converts file type
+MIdata<-mids2mitml.list(hmi_1_19_xochith) #converts file type
 
 thing <- list()
 for (i in 1:10){
@@ -40,11 +42,20 @@ for (i in 1:10){
   temp <- left_join(temp,class_means, by="course_id")
   temp$stud_pre_cent <- temp$pre_score - temp$pre_mean_class
   temp$gain <- temp$post_score - temp$pre_score
-  temp$coll <- temp$colab_no_la + temp$used_las
+  temp$colab_no_la <- as.numeric(temp$colab_no_la)
+  temp$la_in_lab <- as.numeric(temp$la_in_lab)
+  temp$la_in_lecture <- as.numeric(temp$la_in_lecture)
+  temp$la_in_rec <- as.numeric(temp$la_in_rec)
+  temp$first_time <- as.numeric(temp$first_time)
+  temp$coll <- temp$colab_no_la + temp$la_in_lab + temp$la_in_lecture + temp$la_in_rec - 4
+  temp$retake <- ifelse (temp$first_time==1,1,0)
+  temp$lec <- ifelse (temp$coll==1,0,1)
+  temp$race_URM <- as.numeric(temp$black_no_int) + as.numeric(temp$hispanic_no_int) +
+    as.numeric(temp$race_other_no_int)
   #assign(df.names[i], temp)
   thing[[i]] <- temp
   }
-MIdata <- as.mitml.list(thing)
+MIdata <- as.mitml.list(thing)                        
 ```
 
 
