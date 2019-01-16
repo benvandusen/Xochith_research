@@ -1,0 +1,382 @@
+---
+title: "HLM for LASSO Data updated for LASSO_data_1_19"
+author: "Jayson Nissen"
+date: "8/14/2018"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyr)
+library(dplyr)
+library(readr)
+```
+
+
+```{r load }
+#load("/Users/jnissen1/Documents/LASSO Data/LASSO_data_7_18")
+
+load("/Users/jnissen1/Documents/LASSO Data/LASSO_data_1_19")
+
+#load(file="~/Documents/LASSO Data/for_hmi_8_20_18")
+```
+
+Filters out student data from courses with less than 10 pretest and less than 10 posttests. 10 is just ana rbitrary number that I picked to give a reasonable estimate of the courses.
+```{r, reduction}
+phys_ci <- subset(alldata_1_19, FCI==1|FMCE==1)
+
+#phys_ci<- phys_ci[c(1:106,207:222)]
+#Filter out the bad student data
+phys_ci$pre_score[phys_ci$pre_duration <300]<- NA
+phys_ci$post_score[phys_ci$post_duration<300]<- NA
+phys_ci$pre_score[phys_ci$pre_answered <80]<- NA
+phys_ci$post_score[phys_ci$post_answered<80]<- NA
+# dealing with consent
+phys_ci <- subset(phys_ci, is.na(pre_score)==FALSE | is.na(post_score)== FALSE| LASSO_collection=="admin_upload")
+
+
+phys_ci$pre_agree_to_participate[phys_ci$post_agree_to_participate=="I agree to share"] <- "I agree to share"
+phys_ci$pre_score[phys_ci$pre_agree_to_participate=="I do not agree to share"] <- NA
+phys_ci$post_score[phys_ci$post_agree_to_participate=="I do not agree to share"] <- NA
+
+
+phys_ci <- subset(phys_ci, is.na(pre_score)==FALSE | is.na(post_score)== FALSE| LASSO_collection=="admin_upload")
+courses <- phys_ci %>% group_by(assessment_sequence_id, instructor, course_name,course_number) %>% summarise(N_total= length(assessment_sequence_id),
+                                                                      N_pre = length(which(!is.na(pre_score))),
+                                                                      N_post= length(which(!is.na(post_score))),
+                                                                      N_course= mean(students_enrolled))
+
+good_courses <- subset(courses, N_pre>9 &N_post>9)
+good_courses <- left_join(good_courses, unique(phys_ci[c(1,3)]), by = "assessment_sequence_id")
+courses_to_remove <- c(151,168,235,285,318,342,546,584,628,740,740,628,1151,1026,768) #these are either demo courses or not alg/calc based intro courses. 768 includes students from many sections taught in different ways. useful for other analyses but not one what look at instructional strategies
+good_courses <- subset(good_courses, !(course_id %in% courses_to_remove) )
+good_courses <- subset(good_courses,!assessment_sequence_id=="939") # this course gave both the FMCE and FCI. This drops the FCI data.
+good_courses <- subset(good_courses,!assessment_sequence_id=="1400") # this course gave both the FMCE and FCI. This drops the FCI data.
+phys_ci <- subset(phys_ci, assessment_sequence_id %in% good_courses$assessment_sequence_id)
+
+```
+
+THere is a problem with 32 of the courses. It isn't clear if they are or are not collaborative.
+I have 155 total courses. 14 didn't use LAs and I can't tell if they were lecture or collaborative, 100 used LAs, 23 were collaborative without LAs, 18 used lecture
+
+```{r, hmi prep}
+
+course_info <- unique(phys_ci[c(1,3,4,5,6,7,19,21,35:43,45:70,207:223,226:236)])
+temp <- course_info[duplicated(course_info$assessment_sequence_id),]
+temp2 <- subset(course_info, !(assessment_sequence_id %in% temp$assessment_sequence_id))
+course_info <- bind_rows(temp,temp2)
+#course_info <- unique(course_info[c(2:7,17:39,41:58)])
+rm(temp,temp2)
+
+
+course_info$used_las <- NA
+course_info$used_las[course_info$number_of_las >0] <-1
+course_info$used_las[course_info$number_of_las==0] <-0
+course_info$used_las[course_info$course_use_la==1] <-1
+course_info$used_las[course_info$course_use_la==0] <-0
+
+#course_info$used_las[is.na(course_info$course_use_la)==TRUE & is.na(course_info$number_of_las)==TRUE] <- NA
+#temp <- course_info[c(2,70,33,73)]
+
+course_info$times_taught_w_las <- as.character(course_info$times_taught_w_las)
+course_info$times_taught_w_las[course_info$times_taught_w_las=="6+"] <- "6"
+course_info$times_taught_w_las <- as.numeric(course_info$times_taught_w_las)
+
+course_info$times_taught_wo_las <- as.character(course_info$times_taught_wo_las)
+course_info$times_taught_wo_las[course_info$times_taught_wo_las=="6+"] <- "6"
+course_info$times_taught_wo_las <- as.numeric(course_info$times_taught_wo_las)
+
+course_info$la_in_lab <- 0 # I couldn't get the ifelse to recognize the categorical responses
+course_info$la_in_lab[course_info$la_primary_role=="Facilitate laboratory sessions"]<-1
+course_info$la_in_lab[course_info$la_facil_labs==1]<-1
+
+course_info$la_in_lecture <- 0
+course_info$la_in_lecture[course_info$la_primary_role=="Facilitate small group discussions/activities during lecture (less than 50% of the total class time)"] <-1
+course_info$la_in_lecture[course_info$la_primary_role=="Facilitate small group discussions/activities during lecture (more than 50% of the total class time)"] <-1
+course_info$la_in_lecture[course_info$la_facil_small_group_in_lecture_less_than_half_time==1] <-1
+course_info$la_in_lecture[course_info$la_facil_small_group_in_lecture_more_than_half_time==1] <-1
+
+course_info$la_in_rec <-0
+course_info$la_in_rec[course_info$la_primary_role == "Facilitate mandatory recitations/tutorials/co-seminars/workshops/orals/discussion groups outside of lecture"] <-1
+course_info$la_in_rec[course_info$la_primary_role=="Facilitate optional recitations/tutorials/co-seminars/workshops/orals/discussion groups outside of lecture"] <-1
+course_info$la_in_rec[course_info$la_primary_role=="Facilitate mandatory group sessions outside of lecture (e.g., mandatory recitation)"] <-1
+course_info$la_in_rec[course_info$la_facil_mandatory_recitations==1] <-1
+course_info$la_in_rec[course_info$la_facil_optional_recitations==1] <-1
+
+course_info$colab_no_la <- 0
+course_info$colab_no_la[course_info$collab_learning_during_class==1] <-1
+course_info$colab_no_la[course_info$course_strat_interactive_lecture=="No"] <-NA
+course_info$colab_no_la[course_info$course_strat_interactive_lecture=="Yes"] <-NA 
+course_info$colab_no_la[course_info$used_las==1] <-0
+# It looks like when we transitioned the course survey a bunch of courses gave bad data. I'm going to put in their collaborative status as NA and let the HMI assign them.  
+
+course_info$lecture <- 1
+course_info$lecture[course_info$used_las==1]<-0
+course_info$lecture[course_info$colab_no_la==1] <-0
+course_info$lecture[is.na(course_info$colab_no_la)==TRUE] <- NA
+
+#fixing the missing values for colab no LA. I fixed these based on instructors responses for the same or equivalent course in a recent datacollection. I didn't base it on who the instructor was, though I was tempted to.
+course_info$colab_no_la[course_info$course_id=="732"] <- 1
+course_info$lecture[course_info$course_id=="732"] <- 0
+course_info$colab_no_la[course_info$course_id=="742"] <- 1
+course_info$lecture[course_info$course_id=="742"] <- 0
+course_info$colab_no_la[course_info$course_id=="823"] <- 1
+course_info$lecture[course_info$course_id=="823"] <- 0
+course_info$colab_no_la[course_info$course_id=="849"] <- 1
+course_info$lecture[course_info$course_id=="849"] <- 0
+
+course_info$colab_no_la[course_info$course_id=="824"] <- 0
+course_info$lecture[course_info$course_id=="824"] <- 1
+
+
+course_info$colab_no_la[course_info$course_id=="814"] <- 1
+course_info$lecture[course_info$course_id=="814"] <- 0
+course_info$colab_no_la[course_info$course_id=="858"] <- 1
+course_info$lecture[course_info$course_id=="858"] <- 0
+course_info$colab_no_la[course_info$course_id=="870"] <- 1
+course_info$lecture[course_info$course_id=="870"] <- 0
+course_info$colab_no_la[course_info$course_id=="871"] <- 1
+course_info$lecture[course_info$course_id=="871"] <- 0
+course_info$colab_no_la[course_info$course_id=="874"] <- 1
+course_info$lecture[course_info$course_id=="874"] <- 0
+course_info$colab_no_la[course_info$course_id=="889"] <- 1
+course_info$lecture[course_info$course_id=="889"] <- 0
+course_info$colab_no_la[course_info$course_id=="901"] <- 1
+course_info$lecture[course_info$course_id=="901"] <- 0
+course_info$colab_no_la[course_info$course_id=="792"] <- 1
+course_info$lecture[course_info$course_id=="792"] <- 0
+
+course_info$colab_no_la[course_info$course_id=="820"] <- 0
+course_info$lecture[course_info$course_id=="820"] <- 1
+
+######### trouble shooting
+#temp <- course_info[is.na(course_info$lecture)==TRUE,]
+#temp2 <- subset(alldata_1_19, alldata_1_19$course_id %in% temp$course_id)
+#temp3 <- unique(temp2[c(1:70)])
+course_hmi <- unique(course_info[c(2:8,72:77)])
+```
+
+
+```{r student level}
+#white or asian is Dom
+phys_ci$race_URM <- ifelse(phys_ci$hispanic + phys_ci$black + phys_ci$american_indian + phys_ci$hawaiian_or_other_pacific_islander + phys_ci$race_other >=1,1,0)
+#male is Dom
+phys_ci$gend_URM <- ifelse(phys_ci$male==1,0,1)
+# need to add row number to make each student unique
+#temp <- subset(phys_ci, course_id %in% course_info$course_id) # This does nothing
+
+student_hmi <- phys_ci[c(71,3,75,78:82,85:101,237:240)]
+
+for_hmi <- left_join(student_hmi, course_hmi, by = "course_id")
+```
+
+```{r institutions}
+course_hmi$institution_id[course_hmi$institution_id=="117"] <- 137
+length(unique(course_hmi$institution_id))
+#turn 117 to 137 becasue Instructor entered institution incorrectly.
+instisforanalysis <- read_csv("~/Documents/LASSO Data/Institutions/instisforanalysis.csv")
+instis_hmi <- subset(instisforanalysis[c(2,5,6,14:18)], instisforanalysis$institution_id %in% course_hmi$institution_id)
+#filling in the missing value for the community college
+instis_hmi$ACTCAT[instis_hmi$institution_id==122] <- 1
+```
+
+```{r}
+for_hmi <- left_join(course_hmi,instis_hmi, by = "institution_id")
+for_hmi <- left_join(student_hmi,for_hmi, by = "course_id")
+#save(for_hmi, file="~/Documents/LASSO Data/for_hmi_8_20_18_xochith")
+```
+
+Summary statistics
+```{r}
+
+part_rat_all <- for_hmi %>% summarise(N= length(pre_score),
+                                                          pre_rat = 1-(sum(is.na(pre_score))/length(pre_score) ),
+                                                          post_rat = 1-(sum(is.na(post_score))/length(pre_score) ))
+
+part_rat <- for_hmi %>% group_by(course_id) %>% summarise(N= length(pre_score),
+                                                          pre_rat = 1-(sum(is.na(pre_score))/length(pre_score) ),
+                                                          post_rat = 1-(sum(is.na(post_score))/length(pre_score) ))
+
+low_participation <- part_rat$course_id[part_rat$pre_rat<0.39 | part_rat$post_rat<0.39]
+for_hmi <- subset(for_hmi, !(for_hmi$course_id %in% low_participation))
+
+sumstat_course <- for_hmi %>% group_by(lecture,used_las) %>% summarise(courses = length(unique(course_id)))
+sumstat_course <- for_hmi %>% group_by(lecture,used_las) %>% summarise(courses = length(unique(course_id)))
+
+
+sumstat_gend <- for_hmi %>% group_by (lecture, used_las, male) %>% summarise(N= length(pre_score))
+sumstat_race <- for_hmi %>% group_by (lecture, used_las, hispanic, white, black, asian) %>% summarise(N= length(pre_score))
+sumstat_intersect <- for_hmi %>% group_by (lecture, used_las, hispanic, white, black, asian, male, american_indian, hawaiian_or_other_pacific_islander, race_noanswer, race_other) %>% summarise(N= length(pre_score))
+
+sumstat_intersect$instruction <- ifelse(sumstat_intersect$lecture==1,"Lecture", ifelse(sumstat_intersect$used_las==1,"Used_LAs","Collab"))
+sumstat_intersect$race <- ifelse(sumstat_intersect$hispanic==1,"Hispanic", ifelse(sumstat_intersect$white==1,"White",ifelse(sumstat_intersect$black==1,"Black","Asian")))
+
+
+library(ggplot2)
+ggplot(data=sumstat_intersect, aes(y=N, x=race, group=male, fill=as.character(male))) +geom_bar(stat = "identity", position="dodge") +facet_wrap(~instruction)
+```
+
+Organizing the race data more
+```{r}
+for_hmi$race_blank <- 0
+for_hmi$race_blank[for_hmi$race_no_answer==1] <- 1
+for_hmi$race_blank[for_hmi$race_noanswer==1] <- 1
+for_hmi$race_blank[for_hmi$hispanic==1] <- 0 # I'm going to use these to input NAs into the applicable race categories and let the HMI deal with it.
+sum(for_hmi$race_blank)
+for_hmi$black_no_int <- ifelse(for_hmi$black==1,1,0)
+for_hmi$hispanic_no_int <- ifelse(for_hmi$black==0& for_hmi$hispanic==1,1,0)
+for_hmi$asian_no_int <- ifelse(for_hmi$black==0& for_hmi$hispanic==0 & for_hmi$asian==1,1,0)
+for_hmi$race_other_no_int <- ifelse( for_hmi$black_no_int==0 & for_hmi$asian_no_int==0 & for_hmi$hispanic_no_int==0 & for_hmi$white==0 & for_hmi$race_blank==0,1,0)
+for_hmi$race_blank[for_hmi$race_other_no_int==1& for_hmi$race_other==0 & for_hmi$american_indian==0 & for_hmi$hawaiian_or_other_pacific_islander==0] <- 1
+for_hmi$race_other_no_int[for_hmi$race_blank==1] <- 0
+for_hmi$white_no_int <- ifelse(for_hmi$black==0& for_hmi$hispanic==0 & for_hmi$asian==0 & for_hmi$white==1,1,0)
+
+#Code to check that the no int categories do not overlap
+#for_hmi$race_check <- with(for_hmi, race_blank+ black_no_int+ hispanic_no_int+ asian_no_int+ race_other_no_int+white_no_int)
+#check <- for_hmi[for_hmi$race_check >1,]
+
+#Now to input the missing values for everything.
+
+#for_hmi$black[for_hmi$race_blank==1] <- NA
+#for_hmi$asian[for_hmi$race_blank==1] <- NA
+#for_hmi$hispanic[for_hmi$race_blank==1] <- NA
+#for_hmi$white[for_hmi$race_blank==1] <- NA
+#for_hmi$black_no_int[for_hmi$race_blank==1] <- NA
+#for_hmi$asian_no_int[for_hmi$race_blank==1] <- NA
+#for_hmi$white_no_int[for_hmi$race_blank==1] <- NA
+#for_hmi$hispanic_no_int[for_hmi$race_blank==1] <- NA
+#for_hmi$race_other_no_int[for_hmi$race_blank==1] <- NA
+#for_hmi$race_URM <- ifelse(for_hmi$white_no_int==1|for_hmi$asian_no_int==1,0,ifelse(for_hmi$race_blank==1,NA,1))
+
+```
+On to dealing with the gender variables
+```{r}
+for_hmi$gend_URM <- ifelse(for_hmi$gender_text=="Male", 0, 1)
+for_hmi <- for_hmi[is.na(for_hmi$gend_URM)==FALSE,]
+#for_hmi$gend_URM <- ifelse(for_hmi$gender_text=="Male", 0, ifelse(for_hmi$gender_text=="No Answer", NA, 1))
+#unique(for_hmi[c(9,29)])
+```
+
+```{r}
+length(unique(for_hmi$course_id))
+sum_gend <- for_hmi %>% group_by(course_id) %>% summarize(gender_rep = mean(gend_URM, na.rm = TRUE))
+for_hmi <- left_join(for_hmi,sum_gend, by="course_id")
+colnames(for_hmi)
+for_hmi <- for_hmi[c(1,3:29,49:54,  2,32:41,  30:31,42:45)]
+for_hmi_reduced <- for_hmi[c(1,6,7,28,27,30:34,24,35,38,40:46,48)]  
+colnames(for_hmi_reduced)
+for_hmi_reduced <- as.data.frame(for_hmi_reduced)
+save(for_hmi_reduced, file="~/Documents/LASSO Data/for_hmi_1_16_19_xochith")
+```
+I'm having problems with the hmi running with missing data for gender or race. How much data is missing for these
+```{r}
+sum(is.na(for_hmi$gend_URM))
+
+sum(is.na(for_hmi_reduced$race_URM))
+#unique(for_hmi_reduced$race)
+#temp <- for_hmi[is.na(for_hmi$gend_URM)==TRUE,]
+```
+
+
+
+```{r}
+library(hmi)
+library(mice)
+
+load(file="~/Documents/LASSO Data/for_hmi_1_16_19_xochith")
+
+for_hmi_reduced <- as.data.frame(for_hmi_reduced)
+for_hmi_reduced$student_id <- as.factor(for_hmi_reduced$student_id)
+for_hmi_reduced$course_id_num <- for_hmi_reduced$course_id
+for_hmi_reduced$course_id <- as.factor(for_hmi_reduced$course_id)
+for_hmi_reduced$race_URM <- as.factor(for_hmi_reduced$race_URM)
+for_hmi_reduced$first_time <- as.factor(for_hmi_reduced$first_time)
+for_hmi_reduced$ACTCAT <- as.factor(for_hmi_reduced$ACTCAT)
+#for_hmi_reduced$community_college <- as.factor(for_hmi_reduced$community_college)
+for_hmi_reduced$FMCE <- as.factor(for_hmi_reduced$FMCE)
+
+colnames(for_hmi_reduced)
+
+for_hmi_reduced$first_time[is.na(for_hmi_reduced$first_time)==TRUE] <- 1
+
+no_nas_1_19 <- for_hmi_reduced[is.na(for_hmi_reduced$gend_URM)==FALSE & is.na(for_hmi_reduced$race_URM) ==FALSE & is.na(for_hmi_reduced$first_time) ==FALSE,]
+
+#no_nas_1_19 <- for_hmi_reduced[is.na(for_hmi_reduced$gend_URM)==TRUE | is.na(for_hmi_reduced$race_URM) ==TRUE | is.na(for_hmi_reduced$first_time) ==TRUE,]
+
+
+for_hmi_reduced <- for_hmi_reduced %>% mutate(student_id = as.factor(student_id),
+                                      gend_URM = as.factor(gend_URM),
+                                       race_URM= as.factor(race_URM),
+                                       black_no_int= as.factor(black_no_int),
+                                       hispanic_no_int= as.factor(hispanic_no_int),
+                                       asian_no_int= as.factor(asian_no_int),
+                                       race_other_no_int= as.factor(race_other_no_int),
+                                       white_no_int= as.factor(white_no_int),
+                                       first_time= as.factor(first_time),
+                                       course_id= as.factor(course_id),
+                                       FMCE= as.factor(FMCE),
+                                       used_las= as.factor(used_las),
+                                       la_in_lab= as.factor(la_in_lab),
+                                       la_in_lecture= as.factor(la_in_lecture),
+                                       la_in_rec= as.factor(la_in_rec),
+                                       colab_no_la= as.factor(colab_no_la),
+                                       lecture= as.factor(lecture),
+                                       institution_id= as.factor(institution_id)
+                                      )
+#red_no_nas <- as.data.frame(no_nas_1_19[c(1:4,10:17,19:22)])
+#new_DF <- red_no_nas[rowSums(is.na(red_no_nas)) > 0,]
+
+#colnames(red_no_nas)
+
+hmi_1_19_xochith <- hmi(for_hmi_reduced, model_formula = post_score ~ 1 + pre_score + gend_URM + black_no_int + hispanic_no_int + asian_no_int + race_other_no_int + first_time + la_in_rec + la_in_lecture + la_in_lab + colab_no_la + (1|course_id ), M = 10, maxit = 5, nitt = 3000,  burnin = 1000)
+
+save(hmi_1_19_xochith, file = "~/Documents/LASSO Data/hmi_data_1_10_19_xochith")
+ 
+length(unique(no_nas_1_19$course_id))   
+
+red <- as.data.frame(for_hmi_reduced[c(1,2,3,4,16,17)])
+red$intercept <-1
+red$student_id <- as.factor(as.numeric(rownames(red)))
+red$course_id <- as.factor(red$course_id)
+red$FMCE <- as.factor(red$FMCE)
+red$gend_URM <- as.character(red$gend_URM)
+#red$gend_URM[is.na(red$gend_URM)==TRUE] <- 1
+red$race_URM <- as.factor(red$race_URM)
+as.
+
+temp <- list_of_types_maker(red)
+
+hmi.fall.2018 <- hmi(red, model_formula = post_score ~ 1 + pre_score + (1|course_id ), M = 2, maxit = 5, nitt = 3000,  burnin = 1000)
+
+
+
+hmi_out_1_19 <- hmi(red, model_formula = 1 + post_score ~ pre_score + (1|course_id ), M = 10, maxit = 5, list_of_types = NULL, nitt = 3000, burnin = 1000)
+
+hmi.fall.2018 <- hmi(red, model_formula = post_score ~ 1 + pre_score + FMCE+ (1 |course_id ), M = 10, maxit = 5, list_of_types = NULL, nitt = 3000,  burnin = 1000)
+
+hmi_out_1_19 <- hmi(for_hmi_reduced, model_formula = post_score ~ pre_score + used_las + (1 |course_id ), M = 10, maxit = 5, list_of_types = NULL, nitt = 3000, burnin = 1000)
+
+
+black + hispanic_no_int + white_no_int + asian_no_int+ race_other_no_int + 
+                      gend_URM + first_time + 
+  + FMCE|course_id + colab_no_la|course_id + ACTCAT|course_id
+```
+
+```{r}
+library(MCMCglmm)
+library(hmi)
+library(mice)
+
+df <- data.frame(post = rtnorm(100,60,20,0,100),
+                 pre = rtnorm(100,40,20,0,100),
+                 gender = rbinom(n=100, size=1, prob=0.20),
+                 course = rep( c("A","B","C","D"), 100*c(0.1,0.2,0.65,0.05) ))
+df$post[1:round((0.3)*length(df$post),digits = 0)] <-NA
+df$gender[round((0.2)*length(df$post),digits = 0):round((0.5)*length(df$post),digits = 0)] <-NA
+
+hmi_test <- hmi(df, model_formula = post ~ 1 + pre + gender + (1|course ), m = 2, maxit = 5, list_of_types = NULL, nitt = 3000, burnin = 1000)
+
+list_of_types_maker(df)
+```
+
+

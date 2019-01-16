@@ -284,6 +284,8 @@ student_length_tab <- data_frame(Level = "Student",
                               la_in_recitation = length((temp$student_id[temp$la_in_rec==1])),
                               la_in_lab = length((temp$student_id[temp$la_in_lab==1])))
 
+
+
 descriptive_table <- bind_rows(student_length_tab,class_length_tab,student_means_tab,class_means_tab)
 kable(descriptive_table, digits=1)
 ```
