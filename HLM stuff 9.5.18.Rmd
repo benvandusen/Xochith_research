@@ -10,7 +10,7 @@ output: html_document
 #Ben data
 #load("~/Box Sync/work/Research/R stuff/hmifall2018_m10_better")
 
-load("~/hmi_data_1_10_19_xochith")
+load("~/Documents/LASSO Data/hmi_data_1_10_19_xochith")
 
 library(mitools)
 library(stargazer)
@@ -48,10 +48,15 @@ for (i in 1:10){
   temp$la_in_rec <- as.numeric(temp$la_in_rec)
   temp$first_time <- as.numeric(temp$first_time)
   temp$coll <- temp$colab_no_la + temp$la_in_lab + temp$la_in_lecture + temp$la_in_rec - 4
-  temp$retake <- ifelse (temp$first_time==1,1,0)
-  temp$lec <- ifelse (temp$coll==1,0,1)
-  temp$race_URM <- as.numeric(temp$black_no_int) + as.numeric(temp$hispanic_no_int) +
-    as.numeric(temp$race_other_no_int)
+  temp$colab_no_la <- as.factor(temp$colab_no_la)
+  temp$la_in_lab <- as.factor(temp$la_in_lab)
+  temp$la_in_lecture <- as.factor(temp$la_in_lecture)
+  temp$la_in_rec <- as.factor(temp$la_in_rec)
+  temp$first_time <- as.factor(temp$first_time)
+  temp$coll <- as.factor(temp$coll)
+  temp$retake <- as.factor(ifelse(temp$first_time==1,1,0))
+  temp$lec <- as.factor(ifelse(temp$coll==1,0,1))
+  temp$course_id <- as.factor(temp$course_id)
   #assign(df.names[i], temp)
   thing[[i]] <- temp
   }
@@ -78,27 +83,75 @@ model_8 <- gain~1 + stud_pre_cent  + colab_no_la + used_las + (1 + stud_pre_cent
 
 mod_1<-with(MIdata,{lmer(gain~1 + (1|course_id))})
 mod_2<-with(MIdata,{lmer(gain~1 + class_pre_cent + (1|course_id))})
+mod_2.1<-with(MIdata,{lmer(gain~1 + ACTCAT + (1|course_id))})
+
 mod_3<-with(MIdata,{lmer(gain~1 + stud_pre_cent + (1|course_id))})
 mod_4<-with(MIdata,{lmer(gain~1 + stud_pre_cent + coll + (1|course_id))})
 mod_5<-with(MIdata,{lmer(gain~1 + stud_pre_cent + colab_no_la + used_las + (1|course_id))})
-mod_6<-with(MIdata,{lmer(gain~1 + stud_pre_cent  + colab_no_la + la_in_lab + la_in_lecture + la_in_rec + (1|course_id))})
-mod_7<-with(MIdata,{lmer(gain~1 + stud_pre_cent  + colab_no_la + la_in_lab + la_in_lecture + la_in_rec + (1 + stud_pre_cent|course_id))})
+mod_5.1<-with(MIdata,{lmer(gain~1 + stud_pre_cent + colab_no_la + used_las + retake + (1|course_id))})
+mod_6<-with(MIdata,{lmer(gain~1 + stud_pre_cent  + colab_no_la + la_in_lab + la_in_lecture + la_in_rec + retake +  (1|course_id))})
+mod_6.1<-with(MIdata,{lmer(gain~1 + stud_pre_cent  + colab_no_la + la_in_lab + la_in_lecture + la_in_rec + retake +  class_pre_cent + (1|course_id))})
+
+
+mod_7<-with(MIdata,{lmer(gain~1 + stud_pre_cent  + colab_no_la + la_in_lab + la_in_lecture + la_in_rec + retake + ACTCAT + ( 1|course_id))})
+mod_7.1<-with(MIdata,{lmer(gain~1 + stud_pre_cent  + colab_no_la + la_in_lab + la_in_lecture + la_in_rec + retake + ACTCAT + (1|course_id)+ (1|institution_id))})
+mod_7.2<-with(MIdata,{lmer(gain~1 + stud_pre_cent  + ACTCAT*colab_no_la + ACTCAT*la_in_lab + ACTCAT*la_in_lecture + ACTCAT*la_in_rec + retake + (1|course_id) + (1|institution_id))})
 mod_8<-with(MIdata,{lmer(gain~1 + stud_pre_cent  + colab_no_la + used_las + (1 + stud_pre_cent|course_id))})
 #full model
+
+
+
+
 ```
 #average student posttest score is 54.59
 
 ```{r}
 testEstimates(mod_1, var.comp=TRUE)
 testEstimates(mod_2, var.comp=TRUE)
+testEstimates(mod_2.1, var.comp=TRUE)
+
 testEstimates(mod_3, var.comp=TRUE)
 testEstimates(mod_4, var.comp=TRUE)
 testEstimates(mod_5, var.comp=TRUE)
+testEstimates(mod_5.1, var.comp=TRUE)
 testEstimates(mod_6, var.comp=TRUE) #best model
+testEstimates(mod_6.1, var.comp=TRUE)
 testEstimates(mod_7, var.comp=TRUE)
-testEstimates(mod_8, var.comp=TRUE)
+testEstimates(mod_7.1, var.comp=TRUE)
+testEstimates(mod_7.2, var.comp=TRUE)
+#testEstimates(mod_8, var.comp=TRUE)
+
+
 
 ```
+
+```{r}
+mod_13.0<-with(MIdata,{lmer(gain~1 + (1|course_id) + (1|institution_id))})
+mod_13.1<-with(MIdata,{lmer(gain~1 + stud_pre_cent  +(1|course_id) + (1|institution_id))})
+mod_13.2<-with(MIdata,{lmer(gain~1 + retake + (1|course_id) + (1|institution_id))})
+mod_13.3<-with(MIdata,{lmer(gain~1 + stud_pre_cent  +  retake + (1|course_id) + (1|institution_id))})
+#The ACTCAT isn't super useful
+#mod_13.4<-with(MIdata,{lmer(gain~1 + ACTCAT + (1|course_id) + (1|institution_id))}) 
+#mod_13.41<-with(MIdata,{lmer(gain~1 + stud_pre_cent  +  retake + ACTCAT + (1|course_id) + (1|institution_id))})
+mod_13.5<-with(MIdata,{lmer(gain~1 + stud_pre_cent  +  retake + colab_no_la +used_las + (1|course_id) + (1|institution_id))})
+mod_13.6<-with(MIdata,{lmer(gain~1 + stud_pre_cent  +  retake + colab_no_la + la_in_lab + la_in_lecture + la_in_rec + (1|course_id) + (1|institution_id))})
+
+```
+ Thoughts from three level analysis. Centered pretest score drops student level variance ~30 total and 10% at level. Retake drops institutional level variance 3 total and ~15% at that level. ACTCAT increases institutional level variance 3 toatal and ~15% Also small and not statistically significant.
+ 
+Doing a 2-level model instead of a 3 level model just moves the institutional variance into the course level variance.
+```{r}
+testEstimates(mod_13.0, var.comp=TRUE)
+testEstimates(mod_13.1, var.comp=TRUE)
+testEstimates(mod_13.2, var.comp=TRUE)
+testEstimates(mod_13.3, var.comp=TRUE)
+#testEstimates(mod_13.4, var.comp=TRUE)
+#testEstimates(mod_13.41, var.comp=TRUE)
+testEstimates(mod_13.5, var.comp=TRUE)
+testEstimates(mod_13.6, var.comp=TRUE)
+testEstimates(mod_6, var.comp=TRUE)
+```
+
 
 This makes a table for the model development. Two sections need to be modified. The models and the equation column.
 ```{r}
