@@ -2,7 +2,7 @@
 title: "HLM stuff"
 output: html_document
 ---
-
+This needs the new data set included
 ```{r message=FALSE, warning=FALSE}
 #load("~/Desktop/hmiout40")
 #load("~/Documents/LA Postdoc stuff copy/RData/LASSO/Denver-Chico_collaboration/Physics_Equity_new/hmifall2018_m10_better")
