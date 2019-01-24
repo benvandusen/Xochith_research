@@ -10,7 +10,8 @@ This needs the new data set included
 #Ben data
 #load("~/Box Sync/work/Research/R stuff/hmifall2018_m10_better")
 
-load("~/Documents/LASSO Data/hmi_data_1_10_19_xochith")
+#load("~/Documents/LASSO Data/hmi_data_1_10_19_xochith")
+load("~/hmi_data_1_10_19_xochith")
 
 library(mitools)
 library(stargazer)
