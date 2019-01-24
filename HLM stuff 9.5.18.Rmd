@@ -70,6 +70,8 @@ Models
 model_1 <- gain~1 + (1|course_id)
 model_2 <- gain~1 + class_pre_cent + (1|course_id)
 model_3 <- gain~1 + stud_pre_cent + (1|course_id)
+model_3.1 <- gain~1 + retake + (1|course_id)
+model_3.2 <- gain~1 + stud_pre_cent + retake + (1|course_id)
 # we want to compare model 4 and model 5 to see if we should separate these two
 model_4 <- gain~1 + stud_pre_cent + coll + (1|course_id)
 model_5 <- gain~1 + stud_pre_cent + colab_no_la + used_las + (1|course_id)
@@ -86,6 +88,8 @@ mod_2<-with(MIdata,{lmer(gain~1 + class_pre_cent + (1|course_id))})
 mod_2.1<-with(MIdata,{lmer(gain~1 + ACTCAT + (1|course_id))})
 
 mod_3<-with(MIdata,{lmer(gain~1 + stud_pre_cent + (1|course_id))})
+mod_3.1<-with(MIdata,{lmer(gain~1 + retake + (1|course_id))})
+mod_3.2<-with(MIdata,{lmer(gain~1 + stud_pre_cent + retake + (1|course_id))})
 mod_4<-with(MIdata,{lmer(gain~1 + stud_pre_cent + coll + (1|course_id))})
 mod_5<-with(MIdata,{lmer(gain~1 + stud_pre_cent + colab_no_la + used_las + (1|course_id))})
 mod_5.1<-with(MIdata,{lmer(gain~1 + stud_pre_cent + colab_no_la + used_las + retake + (1|course_id))})
@@ -111,6 +115,9 @@ testEstimates(mod_2, var.comp=TRUE)
 testEstimates(mod_2.1, var.comp=TRUE)
 
 testEstimates(mod_3, var.comp=TRUE)
+testEstimates(mod_3.1, var.comp=TRUE)
+testEstimates(mod_3.2, var.comp=TRUE)
+
 testEstimates(mod_4, var.comp=TRUE)
 testEstimates(mod_5, var.comp=TRUE)
 testEstimates(mod_5.1, var.comp=TRUE)
